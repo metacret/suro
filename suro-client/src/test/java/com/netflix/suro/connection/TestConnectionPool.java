@@ -45,9 +45,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-import static junit.framework.Assert.assertFalse;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -331,56 +329,5 @@ public class TestConnectionPool {
 
         ConnectionPool pool = new ConnectionPool(injector.getInstance(ClientConfig.class), lb);
         assertEquals(pool.getPoolSize(), 3);
-    }
-
-    @Test
-    public void shouldNotConcurrentModificationException() throws Exception {
-        createInjector();
-
-        final ConnectionPool pool = injector.getInstance(ConnectionPool.class);
-
-        final AtomicBoolean exceptionHappened = new AtomicBoolean(false);
-        ExecutorService executors = Executors.newFixedThreadPool(3);
-        executors.execute(new Runnable() {
-            @Override
-            public void run() {
-                for (int i = 0; i < 100; ++i) {
-                    for (SuroServer4Test server : servers) {
-                        try {
-                            Server s = new Server("localhost", server.getPort());
-                            ConnectionPool.SuroConnection client = new ConnectionPool.SuroConnection(s, new ClientConfig(), true);
-                            client.connect();
-
-                            pool.addConnection(s, client, true);
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            exceptionHappened.set(true);
-                        }
-                    }
-                }
-            }
-        });
-        executors.execute(new Runnable() {
-            @Override
-            public void run() {
-                for (int i = 0; i < 100; ++i) {
-                    for (SuroServer4Test server : servers) {
-                        try {
-                            Server s = new Server("localhost", server.getPort());
-                            ConnectionPool.SuroConnection client = new ConnectionPool.SuroConnection(s, new ClientConfig(), true);
-                            pool.markServerDown(client);
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            exceptionHappened.set(true);
-                        }
-                    }
-                }
-            }
-        });
-
-        executors.shutdown();
-        executors.awaitTermination(10, TimeUnit.SECONDS);
-
-        assertFalse(exceptionHappened.get());
     }
 }
